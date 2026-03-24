@@ -112,7 +112,7 @@ class Product(db.Model):
         db.session.delete(self)
         db.session.commit()
 
-    def serialize(self) -> dict:
+    def serialize(self):
         """Serializes a Product into a dictionary"""
         return {
             "id": self.id,
@@ -120,35 +120,29 @@ class Product(db.Model):
             "description": self.description,
             "price": str(self.price),
             "available": self.available,
-            "category": self.category.name  # convert enum to string
+            "category": self.category.name if self.category else None,
         }
 
-    def deserialize(self, data: dict):
-        """
-        Deserializes a Product from a dictionary
-        Args:
-            data (dict): A dictionary containing the Product data
-        """
+    def deserialize(self, data):
+        """Deserializes a Product from a dictionary"""
         try:
             self.name = data["name"]
             self.description = data["description"]
-            self.price = Decimal(data["price"])
-            if isinstance(data["available"], bool):
-                self.available = data["available"]
+            self.price = data["price"]
+            self.available = data["available"]
+
+            if isinstance(data["category"], str):
+                self.category = Category[data["category"]]
             else:
-                raise DataValidationError(
-                    "Invalid type for boolean [available]: "
-                    + str(type(data["available"]))
-                )
-            self.category = getattr(Category, data["category"])  # create enum from string
-        except AttributeError as error:
-            raise DataValidationError("Invalid attribute: " + error.args[0]) from error
+                self.category = Category(data["category"])
+
         except KeyError as error:
-            raise DataValidationError("Invalid product: missing " + error.args[0]) from error
+            raise ValueError(f"Invalid product: missing {error.args[0]}")
         except TypeError as error:
-            raise DataValidationError(
-                "Invalid product: body of request contained bad or no data " + str(error)
-            ) from error
+            raise ValueError(
+                f"Invalid product: body of request contained bad or no data: {error}"
+            )
+
         return self
 
     ##################################################
